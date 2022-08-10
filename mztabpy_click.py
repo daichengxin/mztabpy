@@ -11,11 +11,13 @@ def cli():
 @click.command("mztab_parse")
 @click.option("--mztab_path", "-p")
 @click.option("--subtable", "-s")
-@click.option("--hdf5", "-h")
+@click.option("--hdf5", "-h5")
+@click.option("--fillna", "-fa")
+@click.option("--filter", "-fr")
 @click.pass_context
     
 
-def mztab_parse(ctx, mztab_path, subtable = False, hdf5 = False):
+def mztab_parse(ctx, mztab_path, subtable = False, hdf5 = False, fillna = False, filter = False):
     '''This script is used to separate mzTab into metadata, protein, peptide, and PSM. Metadata is orderedDict, and the rest is dataframe. 
         It converts mzTab to a split table(.csv) or HDF5(.hdf5) depending on the options.
     
@@ -25,6 +27,10 @@ def mztab_parse(ctx, mztab_path, subtable = False, hdf5 = False):
     :type subtable: bool
     :param hdf5: Whether to convert mzTab into HDF5
     :type hdf5: bool
+    :param fillna: Whether to replace null values with "null"
+    :type fillna: bool
+    :param filter: Whether to remove empty columns
+    :type filter: bool
     '''
     # Print file info
     folder_path = os.path.split(mztab_path)[0]
@@ -38,16 +44,22 @@ def mztab_parse(ctx, mztab_path, subtable = False, hdf5 = False):
     protein_table =  mztab_data.protein_table
     peptide_table =  mztab_data.peptide_table
     psm_table = mztab_data.spectrum_match_table
-    # protein_table.fillna("null", inplace = True)
-    # peptide_table.fillna("null", inplace = True)
-    # psm_table.fillna("null", inplace = True)
-
     for i in meta_dict.keys():
         meta_dict.update({i: ';'.join(list(meta_dict[i])) if type(meta_dict[i]) == tuple else meta_dict[i]})
-    meta = pd.DataFrame(meta_dict, index = [0])
+    meta_table = pd.DataFrame(meta_dict, index = [0])
+
+    if fillna and not hdf5:
+        protein_table.fillna("null", inplace = True)
+        peptide_table.fillna("null", inplace = True)
+        psm_table.fillna("null", inplace = True)
+    
+    if filter:
+        protein_table = protein_table.dropna(axis=1, how="all")
+        peptide_table = peptide_table.dropna(axis=1, how="all")
+        psm_table = psm_table.dropna(axis=1, how="all")
 
     if subtable:
-        # meta.to_csv(f"./{basename}_meta.csv", sep = "\t")
+        meta_table.to_csv(f"./{basename}_meta.csv", index = False)
         protein_table.to_csv(f"./{basename}_protein.csv", index = False)
         peptide_table.to_csv(f"./{basename}_peptide.csv", index = False)
         if file_bytes/pow(1024, 3) >= 2:
@@ -57,9 +69,11 @@ def mztab_parse(ctx, mztab_path, subtable = False, hdf5 = False):
         print("INFO: Subtables completed!")
     
     if hdf5:
-        protein_table.to_hdf(f"./{basename}_mztab.hdf5", mode='a', key='protein', format = 't', complevel=9, complib='zlib')
-        peptide_table.to_hdf(f"./{basename}_mztab.hdf5", mode='a', key='peptide', format = 't', complevel=9, complib='zlib')
-        psm_table.to_hdf(f"./{basename}_mztab.hdf5", mode='a', key='psm', format = 't', complevel=9, complib='zlib')
+        h5_name = f"./{basename}_mztab.hdf5"
+        meta_table.to_hdf(h5_name, mode='a', key='meta', format = 't', complevel=9, complib='zlib')
+        protein_table.to_hdf(h5_name, mode='a', key='protein', format = 't', complevel=9, complib='zlib')
+        peptide_table.to_hdf(h5_name, mode='a', key='peptide', format = 't', complevel=9, complib='zlib')
+        psm_table.to_hdf(h5_name, mode='a', key='psm', format = 't', complevel=9, complib='zlib')
         print("INFO: HDF5 completed!")
 
 cli.add_command(mztab_parse)
