@@ -3,9 +3,9 @@ import pandas as pd
 from collections import OrderedDict
 import warnings
 
-class mzTabpy:
-    '''The mzTabpy class is used to separate mzTab into metadata, protein, peptide, and PSM. It can convert mzTab to 4 split 
-        tables(.csv) or HDF5(.hdf5) depending on the options. The four subtables will be cached as dataframes if the given 
+class MzTabPy:
+    '''The MzTabPy class is used to separate mzTab into metadata, protein, peptide, and PSM. It can convert mzTab to 4 split 
+        tables(.tsv) or HDF5(.hdf5) depending on the options. The four subtables will be cached as dataframes if the given 
         cache size allows.
             
     :param mztab_path: The path to mzTab
@@ -104,23 +104,23 @@ class mzTabpy:
         return protein_table, peptide_table, psm_table
     
 
-    def storage(self, to_csv = True, to_hdf5 = True):
-        '''Store mzTab as CSV subtables or HDF5.
+    def storage(self, to_tsv = True, to_hdf5 = True):
+        '''Store mzTab as tsv subtables or HDF5.
 
-        :param to_csv: Whether to convert mzTab into subtables(.csv), default True
-        :type to_csv: bool
+        :param to_tsv: Whether to convert mzTab into subtables(.tsv), default True
+        :type to_tsv: bool
         :param to_hdf5: Whether to convert mzTab into HDF5, default True
         :type to_hdf5: bool
         '''
-        if to_csv:
-            self.to_csv = True 
-            self.meta_path = self.folder_path + self.basename + "_metadata_openms.csv"
-            self.pro_path = self.folder_path + self.basename + "_protein_openms.csv"
-            self.pep_path = self.folder_path + self.basename + "_peptide_openms.csv"
+        if to_tsv:
+            self.to_tsv = True 
+            self.meta_path = self.folder_path + self.basename + "_metadata_openms.tsv"
+            self.pro_path = self.folder_path + self.basename + "_protein_openms.tsv"
+            self.pep_path = self.folder_path + self.basename + "_peptide_openms.tsv"
             self.psm_path = self.folder_path + self.basename + \
-                ("_psm_openms.csv" if self.file_bytes < 1 * pow(1024, 3) else "_openms.psms.mzTab.gz")
+                ("_psm_openms.tsv" if self.file_bytes < 1 * pow(1024, 3) else "_openms.psms.mzTab.gz")
         else:
-            self.to_csv = False
+            self.to_tsv = False
 
         if to_hdf5:
             self.to_hdf5 = True
@@ -132,7 +132,7 @@ class mzTabpy:
 
 
     def stream_storage(self):
-        '''This function streams the mzTab and stores it in four CSV subtables (Metadata, protein, peptide, PSM) 
+        '''This function streams the mzTab and stores it in four tsv subtables (Metadata, protein, peptide, PSM) 
             or one HDF5 containing these four parts.
         '''
         self.meta_dict = OrderedDict()
@@ -147,7 +147,7 @@ class mzTabpy:
                     break
 
                 (pro_df, pep_df, psm_df) = self.loadChunk(chunk)
-                if self.to_csv:
+                if self.to_tsv:
                     if os.path.exists(self.pro_path):
                         pro_df.to_csv(self.pro_path, mode="a", sep = '\t', index = False, header = False)
                     else:
@@ -191,7 +191,7 @@ class mzTabpy:
 
         chunks_info = pd.DataFrame(chunk_dict, index = [0])
 
-        if self.to_csv:
+        if self.to_tsv:
             meta_df.to_csv(self.meta_path, mode="a", sep = '\t', index = False, header = True)
         if self.to_hdf5:
             chunks_info.to_hdf(self.h5_path, mode='a', key='CHUNKS_INFO', format='t', complevel=9, complib='zlib')
