@@ -1,7 +1,9 @@
 import os
 import pandas as pd
 from collections import OrderedDict
-import warnings
+import logging
+
+logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
 class MzTabPy:
     '''The MzTabPy class is used to separate mzTab into metadata, protein, peptide, and PSM. It can convert mzTab to 4 split 
@@ -26,8 +28,9 @@ class MzTabPy:
         self.psm_compression = None if self.file_bytes < 1 * pow(1024, 3) else "gzip"
         if self.file_bytes < self.chunk_size:
             self.loadmzTab()
+            logging.info("Four subtables have been cached!")
         else:
-            warnings.warn("No subtable is cached because the single cache is smaller than file bytes!", DeprecationWarning)
+            logging.warning("No subtable is cached because the single cache is smaller than file bytes!")
 
 
     def loadmzTab(self):
@@ -56,14 +59,17 @@ class MzTabPy:
             if row_list[0] == "MTD":
                 meta_dict[row_list[1]] = row_list[2]
             elif row_list[0] == "PRH":
+                logging.info("Metadata processing complete. Start processing the protein subtable...")
                 self.pro_cols = row_list
             elif row_list[0] == "PRT":
                 pro_data.append(row_list)
             elif row_list[0] == "PEH":
+                logging.info("Protein subtable processing complete. Start processing the peptide subtable...")
                 self.pep_cols = row_list
             elif row_list[0] == "PEP":
                 pep_data.append(row_list)
             elif row_list[0] == "PSH":
+                logging.info("Peptide subtable processing complete. Start processing the psm subtable...")
                 self.psm_cols = row_list
             elif row_list[0] == "PSM":
                 psm_data.append(row_list)
@@ -193,9 +199,11 @@ class MzTabPy:
 
         if self.to_tsv:
             meta_df.to_csv(self.meta_path, mode="a", sep = '\t', index = False, header = True)
+            logging.info("mzTab separation and storage complete.")
         if self.to_hdf5:
             chunks_info.to_hdf(self.h5_path, mode='a', key='CHUNKS_INFO', format='t', complevel=9, complib='zlib')
             meta_df.to_hdf(self.h5_path, mode='a', key='meta', format='t', complevel=9, complib='zlib')
+            logging.info("mzTab binary storage complete.")
 
 
     def loadHDF5(h5, subtable, where=None):
@@ -234,7 +242,7 @@ class MzTabPy:
                     result = pd.concat([result, df])
                 return result
             else:
-                warnings.warn("No result is cached because the single cache is to small!", DeprecationWarning)
+                logging.warning("No result has been cached because the single cache is too small!")
 
         
 
