@@ -6,9 +6,10 @@ import logging
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
 class MzTabPy:
-    '''The MzTabPy class is used to separate mzTab into metadata, protein, peptide, and PSM. It can convert mzTab to 4 split 
-        tables(.tsv) or HDF5(.hdf5) depending on the options. The four subtables will be cached as dataframes if the given 
-        cache size allows.
+    '''
+    The MzTabPy class is used to separate mzTab into metadata, protein, peptide, and PSM. It can convert mzTab to 4 split
+    tables(.tsv) or HDF5(.hdf5) depending on the options. The four subtables will be cached as dataframes if the given
+    cache size allows.
             
     :param mztab_path: The path to mzTab
     :type mztab_path: str
