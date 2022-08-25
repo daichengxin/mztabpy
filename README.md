@@ -1,4 +1,7 @@
 # mztabpy
+
+[![Python application](https://github.com/bigbio/mztabpy/actions/workflows/python-app.yml/badge.svg)](https://github.com/bigbio/mztabpy/actions/workflows/python-app.yml)
+
 Python library to handle mzTab files
 ## Input
 mzTab
