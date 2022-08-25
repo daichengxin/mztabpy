@@ -16,8 +16,8 @@ def cli():
 @click.option("--filter", "-fr")
 @click.pass_context
 def mztab_parse(ctx, mztab_path, subtable = False, hdf5 = False, fillna = False, filter = False):
-    '''This script is used to separate mzTab into metadata, protein, peptide, and PSM. Metadata is orderedDict, and the rest is dataframe. 
-        It converts mzTab to a split table(.csv) or HDF5(.hdf5) depending on the options.
+    '''This script is used to separate mzTab into metadata, protein, peptide, and PSM. Metadata is orderedDict,
+    and the rest is dataframe. It converts mzTab to a split table(.csv) or HDF5(.hdf5) depending on the options.
     
     :param mztab_path: The path to mzTab
     :type mztab_path: str
