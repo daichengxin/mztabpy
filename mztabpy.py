@@ -28,6 +28,7 @@ class MzTabPy:
         self.chunks_num = int(self.file_bytes / self.chunk_size) + 1
         self.psm_compression = None if self.file_bytes < 1 * pow(1024, 3) else "gzip"
         if self.file_bytes < self.chunk_size:
+            logging.info("Start loading...")
             self.loadmzTab()
             logging.info("Four subtables have been cached!")
         else:
@@ -111,15 +112,18 @@ class MzTabPy:
         return protein_table, peptide_table, psm_table
     
 
-    def storage(self, to_tsv = True, to_hdf5 = True):
+    def storage(self, type = "all", section = "all", removemeta = False):
         '''Store mzTab as tsv subtables or HDF5.
 
-        :param to_tsv: Whether to convert mzTab into subtables(.tsv), default True
-        :type to_tsv: bool
-        :param to_hdf5: Whether to convert mzTab into HDF5, default True
-        :type to_hdf5: bool
+        :param type: Result type("tsv", "hdf5" or "all"). Default "all"
+        :type type: str
+        :param section: Indicates the data section of the mzTab that is required. "all", "protein", "peptide" or "psm".
+        Default "all"
+        :type section: str
+        :param removemeta: Whether to remove metadata. Default False
+        :type removemeta: bool
         '''
-        if to_tsv:
+        if type == "tsv" or type == "all":
             self.to_tsv = True 
             self.meta_path = self.folder_path + self.basename + "_metadata_openms.tsv"
             self.pro_path = self.folder_path + self.basename + "_protein_openms.tsv"
@@ -129,24 +133,31 @@ class MzTabPy:
         else:
             self.to_tsv = False
 
-        if to_hdf5:
+        if type == "hdf5" or type == "all":
             self.to_hdf5 = True
             self.h5_path = self.folder_path + self.basename + ".hdf5"
         else: 
             self.to_hdf5 = False
 
-        self.stream_storage()
+        logging.info("Start converting...")
+        self.stream_storage(section, removemeta)
 
 
-    def stream_storage(self):
+    def stream_storage(self, section, removemeta):
         '''This function streams the mzTab and stores it in four tsv subtables (Metadata, protein, peptide, PSM) 
             or one HDF5 containing these four parts.
+        
+        :param section: Indicates the data section of the mzTab that is required. "all", "protein", "peptide" or "psm"
+        :type section: str
+        :param removemeta: Whether to remove metadata
+        :type removemeta: bool
         '''
         self.meta_dict = OrderedDict()
         chunk_index = 0
         pro_chunk, pep_chunk, psm_chunk = [], [], []
         chunk_dict = dict.fromkeys(['protein', 'peptide', 'psm'], '')
         chunk_dict.update({'mzTab_file_path': self.mztab_path, 'mztab_file_bytes': self.file_bytes})
+
         with open(self.mztab_path, 'r') as f:
             while True:
                 chunk = f.read(self.chunk_size)
@@ -155,40 +166,42 @@ class MzTabPy:
 
                 (pro_df, pep_df, psm_df) = self.loadChunk(chunk)
                 if self.to_tsv:
-                    if os.path.exists(self.pro_path):
-                        pro_df.to_csv(self.pro_path, mode="a", sep = '\t', index = False, header = False)
-                    else:
-                        pro_df.to_csv(self.pro_path, mode="a", sep = '\t', index = False, header = True)
+                    if section == "all" or section == "protein":
+                        if os.path.exists(self.pro_path):
+                            pro_df.to_csv(self.pro_path, mode="a", sep = '\t', index = False, header = False)
+                        else:
+                            pro_df.to_csv(self.pro_path, mode="a", sep = '\t', index = False, header = True)
                     
-                    if os.path.exists(self.pep_path):
-                        pep_df.to_csv(self.pep_path, mode="a", sep = '\t', index = False, header = False)
-                    else:
-                        pep_df.to_csv(self.pep_path, mode="a", sep = '\t', index = False, header = True)
+                    if section == "all" or section == "peptide":
+                        if os.path.exists(self.pep_path):
+                            pep_df.to_csv(self.pep_path, mode="a", sep = '\t', index = False, header = False)
+                        else:
+                            pep_df.to_csv(self.pep_path, mode="a", sep = '\t', index = False, header = True)
 
-                    if os.path.exists(self.psm_path):
-                        psm_df.to_csv(self.psm_path, mode="a", sep = '\t', index = False, header = False, compression=self.psm_compression)
-                    else:
-                        psm_df.to_csv(self.psm_path, mode="a", sep = '\t', index = False, header = True, compression=self.psm_compression)
+                    if section == "all" or section == "psm":
+                        if os.path.exists(self.psm_path):
+                            psm_df.to_csv(self.psm_path, mode="a", sep = '\t', index = False, header = False, compression=self.psm_compression)
+                        else:
+                            psm_df.to_csv(self.psm_path, mode="a", sep = '\t', index = False, header = True, compression=self.psm_compression)
                             
                 if self.to_hdf5:
-                    if len(pro_df) != 0:
+                    if len(pro_df) != 0 and (section == "all" or section == "protein"):
                         pro_df.to_hdf(self.h5_path, mode='a', key=f'Chunk{chunk_index}_protein', format='t', complevel=9, complib='zlib')
                         pro_chunk.append(f'Chunk{chunk_index}_protein')
                         if 'protein_cols' not in chunk_dict:
                             chunk_dict.update({'protein_cols': ';'.join(pro_df.columns.values)})
 
-                    if len(pep_df) != 0:
+                    if len(pep_df) != 0 and (section == "all" or section == "peptide"):
                         pep_df.to_hdf(self.h5_path, mode='a', key=f'Chunk{chunk_index}_peptide', format='t', complevel=9, complib='zlib')
                         pep_chunk.append(f'Chunk{chunk_index}_peptide')
                         if 'peptide_cols' not in chunk_dict:
                             chunk_dict.update({'peptide_cols': ';'.join(pep_df.columns.values)})
 
-                    if len(psm_df) != 0:
+                    if len(psm_df) != 0 and (section == "all" or section == "psm"): 
                         psm_df.to_hdf(self.h5_path, mode='a', key=f'Chunk{chunk_index}_psm', format='t', complevel=9, complib='zlib')
                         psm_chunk.append(f'Chunk{chunk_index}_psm')
                         if 'psm_cols' not in chunk_dict:
                             chunk_dict.update({'psm_cols': ';'.join(psm_df.columns.values)})
-
                 chunk_index += 1
 
         meta_df = pd.DataFrame(self.meta_dict, index = [0])
@@ -199,12 +212,14 @@ class MzTabPy:
         chunks_info = pd.DataFrame(chunk_dict, index = [0])
 
         if self.to_tsv:
-            meta_df.to_csv(self.meta_path, mode="a", sep = '\t', index = False, header = True)
-            logging.info("mzTab separation and storage complete.")
+            if not removemeta:
+                meta_df.to_csv(self.meta_path, mode="a", sep = '\t', index = False, header = True)
+            logging.info("mzTab separation and storage complete!")
         if self.to_hdf5:
             chunks_info.to_hdf(self.h5_path, mode='a', key='CHUNKS_INFO', format='t', complevel=9, complib='zlib')
-            meta_df.to_hdf(self.h5_path, mode='a', key='meta', format='t', complevel=9, complib='zlib')
-            logging.info("mzTab binary storage complete.")
+            if not removemeta:
+                meta_df.to_hdf(self.h5_path, mode='a', key='meta', format='t', complevel=9, complib='zlib')
+            logging.info("mzTab binary storage complete!")
 
 
     def loadHDF5(h5, subtable, where=None):

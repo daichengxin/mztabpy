@@ -28,8 +28,7 @@ setup(
     install_requires=[
         'tables',
         'pandas',
-        'Click',
-        'pyteomics'
+        'Click'
     ],
     scripts=['mztabpy_click.py'],
     entry_points={

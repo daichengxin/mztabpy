@@ -9,8 +9,8 @@ class TestCases(unittest.TestCase):
 
     def test_mztabpy_to_hdf5(self):
         # mztab storage
-        mztab = MzTabPy("testdata/diatest.sdrf_openms_design_out.mztab", single_cache_size=50 * 1024 * 1024)
-        mztab.storage(to_tsv=True, to_hdf5=True)
+        mztab = MzTabPy("testdata/diatest.sdrf_openms_design_out.mztab", single_cache_size=50 * 1024 * 1024, result_folder="./")
+        mztab.storage(type="all", section="all", removemeta = True)
 
         # Read HDF5 and filter
         result = MzTabPy.loadHDF5("testdata/diatest.sdrf_openms_design_out.hdf5", subtable='peptide',
