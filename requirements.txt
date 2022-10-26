@@ -1,3 +1,5 @@
 Click~=7.0
 pandas
 tables
+numpy
+pyopenms

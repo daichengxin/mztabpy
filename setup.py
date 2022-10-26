@@ -6,7 +6,7 @@ hdf5.
 
 from setuptools import setup, find_packages
 
-version = '0.0.1'
+version = '0.0.2'
 
 def readme():
     with open('README.md') as f:
@@ -28,7 +28,9 @@ setup(
     install_requires=[
         'tables',
         'pandas',
-        'Click'
+        'Click',
+        'numpy',
+        'pyopenms'
     ],
     scripts=['mztabpy_click.py'],
     entry_points={

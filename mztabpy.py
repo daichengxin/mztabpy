@@ -1,7 +1,9 @@
 import os
 import pandas as pd
+import numpy as np
 from collections import OrderedDict
 import logging
+import re
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
@@ -16,19 +18,25 @@ class MzTabPy:
     :param single_cache_size: Single cache size, default 500*1024*1024
     :type single_cache_size: int
     :param result_folder: Folder to result files, default './' 
-    :type result_folder: bool
+    :type result_folder: str
+    :param section_tag: Whether to keep section tags, default False
+    :type section_tag: bool
+    :param df_index: Whether to keep section tags, default False
+    :type df_index: bool
     '''
-    def __init__(self, mztab_path, single_cache_size = 500*1024*1024, result_folder = "./"):
+    def __init__(self, mztab_path, single_cache_size = 500*1024*1024, result_folder = "./", section_tag = False, df_index = True):
         self.mztab_path = mztab_path
         self.chunk_size = single_cache_size
         self.folder_path = result_folder
+        self.sectag = section_tag
+        self.df_index = df_index
         file_name = os.path.split(mztab_path)[1]
         self.basename = os.path.splitext(file_name)[0]
         self.file_bytes = os.path.getsize(mztab_path)
+        self.datatype = dict()
         self.chunks_num = int(self.file_bytes / self.chunk_size) + 1
         self.psm_compression = None if self.file_bytes < 1 * pow(1024, 3) else "gzip"
         if self.file_bytes < self.chunk_size:
-            logging.info("Start loading...")
             self.loadmzTab()
             logging.info("Four subtables have been cached!")
         else:
@@ -43,6 +51,7 @@ class MzTabPy:
             chunk = f.read(self.file_bytes)
             (self.protein, self.peptide, self.psm) = self.loadChunk(chunk)
             self.metadata = pd.DataFrame(self.meta_dict, index = [0])
+        return self.meta_dict, self.protein, self.peptide, self.psm
 
 
     def loadChunk(self, chunk):
@@ -53,6 +62,11 @@ class MzTabPy:
         :type chunk: str
         '''
         data = chunk.split('\n')
+        if not chunk.endswith('\n'):
+            self.row_remains = data[-1]
+            data = data[0:-1]
+        else:
+            self.row_remains = ""
         meta_dict = dict()
         pro_data, pep_data, psm_data = [], [], []
         for i in data:
@@ -63,16 +77,19 @@ class MzTabPy:
             elif row_list[0] == "PRH":
                 logging.info("Metadata processing complete. Start processing the protein subtable...")
                 self.pro_cols = row_list
+                self.classify_datatype(self.pro_cols)
             elif row_list[0] == "PRT":
                 pro_data.append(row_list)
             elif row_list[0] == "PEH":
                 logging.info("Protein subtable processing complete. Start processing the peptide subtable...")
                 self.pep_cols = row_list
+                self.classify_datatype(self.pep_cols)
             elif row_list[0] == "PEP":
                 pep_data.append(row_list)
             elif row_list[0] == "PSH":
                 logging.info("Peptide subtable processing complete. Start processing the psm subtable...")
                 self.psm_cols = row_list
+                self.classify_datatype(self.psm_cols)
             elif row_list[0] == "PSM":
                 psm_data.append(row_list)
             else:
@@ -82,32 +99,37 @@ class MzTabPy:
             self.meta_dict.update({i: ';'.join(list(meta_dict[i])) if type(meta_dict[i]) == tuple else meta_dict[i]})
 
         if len(pro_data) > 0:
-            protein_table = pd.DataFrame(pro_data, columns=self.pro_cols, dtype='str')
-            protein_table.drop(columns='PRH', inplace=True)
-            protein_table.set_index("accession", inplace=True, drop=False)
+            protein_table = pd.DataFrame(pro_data, columns=self.pro_cols)
+            self.resetdatatype(protein_table)
+            if not self.sectag:
+                protein_table.drop(columns='PRH', inplace=True)
+            if self.df_index:
+                protein_table.set_index("accession", inplace=True, drop=False)
         else: 
             protein_table = pd.DataFrame()
 
         if len(pep_data) > 0:
-            peptide_table = pd.DataFrame(pep_data, columns=self.pep_cols, dtype='str')
-            peptide_table.drop(columns='PEH', inplace=True)
-            peptide_table.set_index("accession", inplace=True, drop=False)
+            peptide_table = pd.DataFrame(pep_data, columns=self.pep_cols)
+            self.resetdatatype(peptide_table)
+            if not self.sectag:
+                peptide_table.drop(columns='PEH', inplace=True)
+            if self.df_index:
+                peptide_table.set_index("accession", inplace=True, drop=False)
         else: 
             peptide_table = pd.DataFrame()
 
         if len(psm_data) > 0:
-            psm_table = pd.DataFrame(psm_data, columns=self.psm_cols, dtype='str')
-            psm_table.drop(columns='PSH', inplace=True)
-            psm_table.set_index("accession", inplace=True, drop=False)
+            psm_table = pd.DataFrame(psm_data, columns=self.psm_cols)
+            self.resetdatatype(peptide_table)
+            if not self.sectag:
+                psm_table.drop(columns='PSH', inplace=True)
+            if self.df_index:
+                psm_table.set_index("accession", inplace=True, drop=False)
             if "opt_global_cv_MS:1002217_decoy_peptide" not in psm_table.columns.values:
                 psm_table['opt_global_cv_MS:1002217_decoy_peptide'] = psm_table.apply(
                     lambda x: 1 if any(i in x['accession'] for i in ["DECOY_", "decoy"]) else 0, axis=1) 
         else: 
             psm_table = pd.DataFrame()
-        
-        protein_table.fillna("null", inplace = True)
-        peptide_table.fillna("null", inplace = True)
-        psm_table.fillna("null", inplace = True)
 
         return protein_table, peptide_table, psm_table
     
@@ -157,15 +179,21 @@ class MzTabPy:
         pro_chunk, pep_chunk, psm_chunk = [], [], []
         chunk_dict = dict.fromkeys(['protein', 'peptide', 'psm'], '')
         chunk_dict.update({'mzTab_file_path': self.mztab_path, 'mztab_file_bytes': self.file_bytes})
-
+        self.row_remains = ''
         with open(self.mztab_path, 'r') as f:
             while True:
-                chunk = f.read(self.chunk_size)
+                chunk = self.row_remains + f.read(self.chunk_size)
                 if not chunk:
                     break
 
                 (pro_df, pep_df, psm_df) = self.loadChunk(chunk)
+                pro_h5 = pro_df.copy(deep=True)
+                pep_h5 = pep_df.copy(deep=True)
+                psm_h5 = psm_df.copy(deep=True)
                 if self.to_tsv:
+                    pro_df.fillna("null", inplace=True)
+                    pep_df.fillna("null", inplace=True)
+                    psm_df.fillna("null", inplace=True)
                     if section == "all" or section == "protein":
                         if os.path.exists(self.pro_path):
                             pro_df.to_csv(self.pro_path, mode="a", sep = '\t', index = False, header = False)
@@ -183,27 +211,31 @@ class MzTabPy:
                             psm_df.to_csv(self.psm_path, mode="a", sep = '\t', index = False, header = False, compression=self.psm_compression)
                         else:
                             psm_df.to_csv(self.psm_path, mode="a", sep = '\t', index = False, header = True, compression=self.psm_compression)
-                            
+                    del pro_df, pep_df, psm_df    
                 if self.to_hdf5:
-                    if len(pro_df) != 0 and (section == "all" or section == "protein"):
-                        pro_df.to_hdf(self.h5_path, mode='a', key=f'Chunk{chunk_index}_protein', format='t', complevel=9, complib='zlib')
+                    pro_h5.fillna(np.nan, inplace=True)
+                    pep_h5.fillna(np.nan, inplace=True)
+                    psm_h5.fillna(np.nan, inplace=True)
+                    if len(pro_h5) != 0 and (section == "all" or section == "protein"):
+                        pro_h5.to_hdf(self.h5_path, mode='a', key=f'Chunk{chunk_index}_protein', format='t', complevel=9, complib='zlib')
                         pro_chunk.append(f'Chunk{chunk_index}_protein')
                         if 'protein_cols' not in chunk_dict:
-                            chunk_dict.update({'protein_cols': ';'.join(pro_df.columns.values)})
+                            chunk_dict.update({'protein_cols': ';'.join(pro_h5.columns.values)})
 
-                    if len(pep_df) != 0 and (section == "all" or section == "peptide"):
-                        pep_df.to_hdf(self.h5_path, mode='a', key=f'Chunk{chunk_index}_peptide', format='t', complevel=9, complib='zlib')
+                    if len(pep_h5) != 0 and (section == "all" or section == "peptide"):
+                        pep_h5.to_hdf(self.h5_path, mode='a', key=f'Chunk{chunk_index}_peptide', format='t', complevel=9, complib='zlib')
                         pep_chunk.append(f'Chunk{chunk_index}_peptide')
                         if 'peptide_cols' not in chunk_dict:
-                            chunk_dict.update({'peptide_cols': ';'.join(pep_df.columns.values)})
+                            chunk_dict.update({'peptide_cols': ';'.join(pep_h5.columns.values)})
 
-                    if len(psm_df) != 0 and (section == "all" or section == "psm"): 
-                        psm_df.to_hdf(self.h5_path, mode='a', key=f'Chunk{chunk_index}_psm', format='t', complevel=9, complib='zlib')
+                    if len(psm_h5) != 0 and (section == "all" or section == "psm"): 
+                        psm_h5.to_hdf(self.h5_path, mode='a', key=f'Chunk{chunk_index}_psm', format='t', complevel=9, complib='zlib')
                         psm_chunk.append(f'Chunk{chunk_index}_psm')
                         if 'psm_cols' not in chunk_dict:
-                            chunk_dict.update({'psm_cols': ';'.join(psm_df.columns.values)})
+                            chunk_dict.update({'psm_cols': ';'.join(psm_h5.columns.values)})
+                    del pro_h5, pep_h5, psm_h5
                 chunk_index += 1
-
+        
         meta_df = pd.DataFrame(self.meta_dict, index = [0])
         chunk_dict.update({'protein': ';'.join(pro_chunk),
                            'peptide': ';'.join(pep_chunk),
@@ -252,7 +284,7 @@ class MzTabPy:
             return result
 
         else:
-            if os.path.getsize(h5) < 100*pow(1024, 2):
+            if os.path.getsize(h5) < pow(1024, 3):
                 for i in chunks:
                     df = pd.read_hdf(h5, key=i)
                     result = pd.concat([result, df])
@@ -260,6 +292,37 @@ class MzTabPy:
             else:
                 logging.warning("No result has been cached because the single cache is too small!")
 
+    def classify_datatype(self, columns):
+        """Classify data types according to column names
+
+        :param columns: Columns of target dataframe
+        :type columns: list
+        """
+        for col in columns:
+            if any([i in col for i in ["score", "abundance", "mass_to_charge", "study_variable", "q-value"]]) or col in [
+                "protein_coverage", "retention_time"]:
+                self.datatype.update({col: float})
+            elif any([i in col for i in ["ID", "_decoy_", "index"]]) or col in [
+                "opt_global_nr_found_peptides", "unique", "charge", "start", "end"]:
+                self.datatype.update({col: int})
+            else:
+                self.datatype.update({col: str})
+    
+
+    def resetdatatype(self, df):
+        """Reset data type in target dataframe
+
+        :param df: Target dataframe
+        :type df: dataframe
+        """
+        def resetvalue(col, value):
+            if value in ['', "null", None]:
+                return None
+            else:
+                return self.datatype[col](value)
+
+        for col in df.columns:
+            df.loc[:, col] = df.apply(lambda x: resetvalue(col, x[col]), axis = 1)
         
 
 
