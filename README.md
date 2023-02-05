@@ -1,6 +1,8 @@
 # mztabpy
 
 [![Python application](https://github.com/bigbio/mztabpy/actions/workflows/python-app.yml/badge.svg)](https://github.com/bigbio/mztabpy/actions/workflows/python-app.yml)
+[![PyPI version](https://badge.fury.io/py/mztabpy.svg)](https://badge.fury.io/py/mztabpy)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/mztabpy)
 
 Python library to handle mztab files. mzTab is a tab-delimited file format created by HUPO-PSI containing protein/peptide quantification and identification data. 
 
