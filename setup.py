@@ -30,7 +30,8 @@ setup(
         'pandas',
         'Click',
         'numpy',
-        'pyopenms'
+        'pyopenms', 
+        'dask'
     ],
     scripts=['mztabpy_click.py'],
     entry_points={

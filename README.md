@@ -57,7 +57,7 @@ diannconvert --directory {analyse directory}
     --out {out directory}
 ```
 -   --directory: DiannConvert specifies the folder where the required file resides. The folder contains
-        the DiaNN `main report`, `protein matrix`, `precursor matrix`, `experimental design file`, `protein sequence FASTA file` and
+        the DiaNN `main report`, `experimental design file`, `protein sequence FASTA file`, `mzml_info TSVs` and
         `version file of DiaNN`
 -   --diannparams: A string contains DIA parameters (FragmentMassTolerance, FragmentMassToleranceUnit, 
         PrecursorMassTolerance, PrecursorMassToleranceUnit, FixedModifications, VariableModifications) 
@@ -65,7 +65,10 @@ diannconvert --directory {analyse directory}
 -   --charge: The charge assigned by DiaNN(max_precursor_charge)
 -   --missed_cleavages: Allowed missed cleavages assigned by DiaNN
 -   --qvalue_threshold: Threshold for filtering q value
--   --out: Path to out directory
+-   --processors: Number of used processors, defaults to 20
+    --threads_per_processor: Number of threads used per processor, defaults to 8
+    --out: Path to out directory, defaults to "./"
+    --block_size: Chunk size, defaults to 500e6
 
 ### mztabmerge
 ```bash

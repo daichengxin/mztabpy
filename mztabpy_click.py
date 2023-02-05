@@ -1,7 +1,5 @@
 import pandas as pd
-from mztabpy import MzTabPy
-from diannconvert import DiannConvert
-from mztabmerge import MzTabMerge
+from mztabpy import MzTabPy, DiannConvert, MzTabMerge
 import click
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
@@ -80,17 +78,28 @@ cli.add_command(hdf5_search)
 @click.option("--charge", "-c", type=int)
 @click.option("--missed_cleavages", "-m", type=int)
 @click.option("--qvalue_threshold", "-q", type=float)
+@click.option("--processors", "-pr", default=20)
+@click.option("--threads_per_processor", "-t", default=8)
 @click.option("--out", "-o", default="./")
+@click.option("--block_size", "-b", default=500e6)
 @click.pass_context
 def diannconvert(
-    ctx, directory, diannparams, charge, missed_cleavages, qvalue_threshold, out
+    ctx,
+    directory,
+    diannparams,
+    charge,
+    missed_cleavages,
+    qvalue_threshold,
+    processors,
+    threads_per_processor,
+    out,
+    block_size,
 ):
     """This function is designed to convert the DIA-NN output into three standard formats: MSstats, Triqler and mzTab. These documents are
     used for quality control and downstream analysis.
 
     :param directory: DiannConvert specifies the folder where the required file resides. The folder contains
-        the Dia-NN master report, protein matrix, precursor matrix, experimental design file, and protein sequence
-        FASTA file
+        the Dia-NN main report, experimental design file, mzml_info TSVs and protein sequence FASTA file
     :type directory: str
     :param diannparams: A list contains DIA parameters
     :type diannparams: list
@@ -100,11 +109,26 @@ def diannconvert(
     :type missed_cleavages: int
     :param qvalue_threshold: Threshold for filtering q value
     :type qvalue_threshold: float
-    :param out: Path to out directory
+    :param processors: Number of used processors, defaults to 20
+    :type processors: int
+    :param threads_per_processor: Number of threads used per processor, defaults to 8
+    :type threads_per_processor: int
+    :param out: Path to out directory, defaults to "./"
     :type out: str
+    :param block_size: _description_, defaults to 500e6
+    :type block_size: int
     """
+
     DiannConvert(
-        directory, diannparams, charge, missed_cleavages, qvalue_threshold, out
+        directory,
+        diannparams,
+        charge,
+        missed_cleavages,
+        qvalue_threshold,
+        processors,
+        threads_per_processor,
+        out,
+        block_size,
     ).convert()
 
 

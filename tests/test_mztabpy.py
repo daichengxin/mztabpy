@@ -1,6 +1,4 @@
-from mztabpy import MzTabPy
-from diannconvert import DiannConvert
-from mztabmerge import MzTabMerge
+from mztabpy import MzTabPy, DiannConvert, MzTabMerge
 
 import unittest
 
@@ -12,7 +10,7 @@ class TestCases(unittest.TestCase):
     def test_mztabpy_to_hdf5(self):
         # mztab storage
         mztab = MzTabPy(
-            "testdata/split&convert/diatest.sdrf_openms_design_out.mztab",
+            "testdata/split_convert/diatest.sdrf_openms_design_out.mztab",
             single_cache_size=50 * 1024 * 1024,
             result_folder="./",
         )
@@ -20,7 +18,7 @@ class TestCases(unittest.TestCase):
 
         # Read HDF5 and filter
         result = MzTabPy.loadHDF5(
-            "testdata/diatest.sdrf_openms_design_out.hdf5",
+            "testdata/split_convert/diatest.sdrf_openms_design_out.hdf5",
             subtable="peptide",
             where={"accession": "P68066", "sequence": "AANDDLLNSFWLLDSEKGEAR"},
         )
@@ -33,7 +31,10 @@ class TestCases(unittest.TestCase):
             charge=3,
             missed_cleavages=1,
             qvalue_threshold=0.05,
+            processors=20,
+            threads_per_processor=8,
             out="./",
+            block_size=500e6,
         )
 
     def test_mztabmerge(self):
