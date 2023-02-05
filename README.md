@@ -24,63 +24,53 @@ MzTabMerge:
 ## Usage
 #### mztab_convert
 ```bash
-mztab_convert --mztab_path {mztab_path}
-    --directory {result folder}
-    --type {result type}
-    --section {section of the mzTab}
-    --removemeta {True or False}
+mztab_convert [OPTIONS]
+
+Options:
+    --mztab_path: The path to mzTab
+    --directory: Folder to result files. Default "./"
+    --type: Result type(`"tsv"`, `"hdf5"` or `"all"`). Default "all"
+    --section: Indicates the data section of the mzTab that is required. `"all"`, `"protein"`, `"peptide"` or `"psm"`.Default "all"
+    --removemeta: Whether to remove `metadata`. Default False
 ```
--   --mztab_path: The path to mzTab
--   --directory: Folder to result files. Default "./"
--   --type: Result type(`"tsv"`, `"hdf5"` or `"all"`). Default "all"
--   --section: Indicates the data section of the mzTab that is required. `"all"`, `"protein"`, `"peptide"` or `"psm"`.Default "all"
--   --removemeta: Whether to remove `metadata`. Default False
 
 #### hdf5_search
 ```bash
-hdf5_search --hdf5_path {hdf5_path}
-    --subtable {section of the mzTab}
-    --where {filtering condition}
+hdf5_search [OPTIONS]
+
+Options:
+    --hdf5_path: Path to HDF5
+    --section: Indicates the data section of the mzTab that is required. `"protein"`, `"peptide"` or `"psm"`.
+    --where: The filtering condition of the corresponding chunk is expressed as the key-value pair in one string, e.g. `"accession:P45464,sequence:TIQQGFEAAK"`, default None
 ```
--   --hdf5_path: Path to HDF5
--   --section: Indicates the data section of the mzTab that is required. `"protein"`, `"peptide"` or `"psm"`.
--   --where: The filtering condition of the corresponding chunk is expressed as the key-value pair in one string, e.g. `"accession:P45464,sequence:TIQQGFEAAK"`, default None
 
 ### diannconvert
 ```Note: Currently diannconvert is available only for diann v1.8.1!```
 ```bash
-diannconvert --directory {analyse directory} 
-    --diannparams {diann parameters} 
-    --charge {charge state} 
-    --missed_cleavages {allowed missed cleavages} 
-    --qvalue_threshold {filter threshold} 
-    --out {out directory}
-```
--   --directory: DiannConvert specifies the folder where the required file resides. The folder contains
-        the DiaNN `main report`, `experimental design file`, `protein sequence FASTA file`, `mzml_info TSVs` and
-        `version file of DiaNN`
--   --diannparams: A string contains DIA parameters (FragmentMassTolerance, FragmentMassToleranceUnit, 
-        PrecursorMassTolerance, PrecursorMassToleranceUnit, FixedModifications, VariableModifications) 
-        split by ";". e.g. `"20;ppm;10;ppm;Trypsin;Carbamidomethyl (C);Oxidation (M)"`
--   --charge: The charge assigned by DiaNN(max_precursor_charge)
--   --missed_cleavages: Allowed missed cleavages assigned by DiaNN
--   --qvalue_threshold: Threshold for filtering q value
--   --processors: Number of used processors, defaults to 20
+diannconvert [OPTIONS]
+
+Options:
+    --directory: DiannConvert specifies the folder where the required file resides. The folder contains the DiaNN `main report`, `experimental design file`, `protein sequence FASTA file`, `mzml_info TSVs`, `version file of DiaNN`
+    --diannparams: A string contains DIA parameters (FragmentMassTolerance, FragmentMassToleranceUnit, PrecursorMassTolerance, PrecursorMassToleranceUnit, FixedModifications, VariableModifications) split by ";". e.g. `"20;ppm;10;ppm;Trypsin;Carbamidomethyl (C);Oxidation (M)"`
+    --charge: The charge assigned by DiaNN(max_precursor_charge)
+    --missed_cleavages: Allowed missed cleavages assigned by DiaNN
+    --qvalue_threshold: Threshold for filtering q value
+    --processors: Number of used processors, defaults to 20
     --threads_per_processor: Number of threads used per processor, defaults to 8
     --out: Path to out directory, defaults to "./"
     --block_size: Chunk size, defaults to 500e6
+ ```
 
 ### mztabmerge
 ```bash
-mztabmerge --mztab1 {original mztab}
-    --mztab2 {mztab to be merged}
-    --single_cache_size {cached bytes}
-    --out {out directory}
+mztabmerge [OPTIONS]
+
+Options:
+    --mztab1: Path to the original mztab
+    --mztab2: Path to the mztab to be merged
+    --single_cache_size: Single cache size, default 500e6
+    --out: Folder to result files, default './'
 ```
--   --mztab1: Path to the original mztab
--   --mztab2: Path to the mztab to be merged
--   --param single_cache_size: Single cache size, default 500*1024*1024
--   --param out: Folder to result files, default './'
 
 ## HDF5 storage and reading
 MzTabPy uses stream reading when storing mztab in binary. During mztab reading, MzTabPy assigns a subtable tag (meta, protein, peptide or psm) to each chunk of data and records the column name of the corresponding subtable. This information is stored in the HDF5 `"CHUNKS_INFO"` group, and groups belonging to each subtable will be named according to their respective tags. For example, `"meta"`, `"Chunk0_protein"`, `"Chunk0_peptide"`, `"Chunk0_psm"`, `"Chunk1_psm"`... The number in the group name represents the subscript of the data chunk (starting at 0).
